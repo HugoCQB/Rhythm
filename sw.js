@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bpm-studio-v1';
+const CACHE_NAME = 'bpm-studio-v6';
 const ASSETS = [
   './',
   './index.html',
@@ -26,10 +26,20 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Stratégie Network-First : toujours chercher la dernière version en ligne d'abord,
+// et utiliser le cache uniquement si l'appareil est hors-ligne.
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      return cachedResponse || fetch(event.request);
-    })
+    fetch(event.request)
+      .then((networkResponse) => {
+        const responseClone = networkResponse.clone();
+        caches.open(CACHE_NAME).then((cache) => {
+          cache.put(event.request, responseClone);
+        });
+        return networkResponse;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
