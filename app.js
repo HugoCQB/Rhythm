@@ -2,20 +2,25 @@
   // =========================================================
   // ÉTAT GLOBAL & AUDIO PARTAGÉ
   // =========================================================
-  let activeMode = 'guess'; // 'guess' | 'tap'
+  let activeMode = 'guess'; // 'guess' | 'tap' | 'vibe'
   let audioCtx = null;
   let deferredPrompt = null;
-  // Muet par défaut pour jouer sans son dès le lancement (modifiable via le bouton)
   let isMuted = localStorage.getItem('bpm_muted') !== null
     ? localStorage.getItem('bpm_muted') === 'true'
     : true;
+
+  const TICK_VISIBLE_MS = 95;
+  const VIBRATE_PULSE_MS = 40;
+  const supportsVibration = typeof navigator !== 'undefined' && 'vibrate' in navigator;
 
   const muteBtn = document.getElementById('muteBtn');
   const installBtn = document.getElementById('installBtn');
   const tabGuess = document.getElementById('tabGuess');
   const tabTap = document.getElementById('tabTap');
+  const tabVibe = document.getElementById('tabVibe');
   const viewGuess = document.getElementById('viewGuess');
   const viewTap = document.getElementById('viewTap');
+  const viewVibe = document.getElementById('viewVibe');
 
   function ensureAudioCtx() {
     if (!audioCtx) {
@@ -52,6 +57,22 @@
     osc.stop(audioCtx.currentTime + 0.05);
   }
 
+  function triggerVibrationPulse() {
+    if (supportsVibration) {
+      try {
+        navigator.vibrate(VIBRATE_PULSE_MS);
+      } catch (_) {}
+    }
+  }
+
+  function stopVibration() {
+    if (supportsVibration) {
+      try {
+        navigator.vibrate(0);
+      } catch (_) {}
+    }
+  }
+
   function updateMuteUI() {
     if (isMuted) {
       muteBtn.classList.add('muted');
@@ -75,51 +96,50 @@
   }
 
   // =========================================================
-  // GESTION DU CHANGEMENT DE MODE
+  // CHANGEMENT DE MODE
   // =========================================================
   function switchMode(newMode) {
     if (activeMode === newMode) return;
     activeMode = newMode;
 
-    // Arrête les boucles actives de l'autre mode
+    // Nettoyage des boucles actives
     stopCorrectionMetronome();
+    stopVibration();
     guessIsObserving = false;
+    vibeIsRunning = false;
     guessMetronomeOrb.classList.remove('tick');
+    vibeOrb.classList.remove('vibe-tick');
 
-    if (activeMode === 'guess') {
-      tabGuess.classList.add('active');
-      tabGuess.setAttribute('aria-selected', 'true');
-      tabTap.classList.remove('active');
-      tabTap.setAttribute('aria-selected', 'false');
+    const tabs = [
+      { el: tabGuess, mode: 'guess', view: viewGuess },
+      { el: tabTap, mode: 'tap', view: viewTap },
+      { el: tabVibe, mode: 'vibe', view: viewVibe }
+    ];
 
-      viewGuess.classList.remove('hidden');
-      viewTap.classList.add('hidden');
-      startGuessRound();
-    } else {
-      tabTap.classList.add('active');
-      tabTap.setAttribute('aria-selected', 'true');
-      tabGuess.classList.remove('active');
-      tabGuess.setAttribute('aria-selected', 'false');
+    tabs.forEach((t) => {
+      const isActive = t.mode === activeMode;
+      t.el.classList.toggle('active', isActive);
+      t.el.setAttribute('aria-selected', String(isActive));
+      t.view.classList.toggle('hidden', !isActive);
+    });
 
-      viewTap.classList.remove('hidden');
-      viewGuess.classList.add('hidden');
-      resetTapRound(true);
-    }
+    if (activeMode === 'guess') startGuessRound();
+    else if (activeMode === 'tap') resetTapRound(true);
+    else if (activeMode === 'vibe') startVibeRound();
   }
 
   tabGuess.addEventListener('click', () => switchMode('guess'));
   tabTap.addEventListener('click', () => switchMode('tap'));
+  tabVibe.addEventListener('click', () => switchMode('vibe'));
 
   // =========================================================
-  // MODE 1 : DEVINER LE BPM (10s d'observation puis à l'aveugle)
+  // MODE 1 : DEVINER LE BPM (10s observation puis Tap Tempo)
   // =========================================================
   const OBSERVE_DURATION_MS = 10000;
-  const TICK_VISIBLE_MS = 95;
   const MAX_GUESS_TAP_HISTORY = 8;
   const GUESS_TAP_RESET_MS = 2200;
 
   let guessTargetBpm = 120;
-  let guessScore = 0;
   let guessRoundCompleted = false;
   let guessIsObserving = false;
   let guessStartTime = 0;
@@ -127,44 +147,16 @@
   let guessTapTimestamps = [];
 
   const guessPhaseBadge = document.getElementById('guessPhaseBadge');
-  const guessTotalScoreEl = document.getElementById('guessTotalScore');
   const guessMetronomeOrb = document.getElementById('guessMetronomeOrb');
   const guessOrbValue = document.getElementById('guessOrbValue');
   const guessOrbLabel = document.getElementById('guessOrbLabel');
   const guessInstruction = document.getElementById('guessInstruction');
   const guessTapBtn = document.getElementById('guessTapBtn');
-  const guessTapStatus = document.getElementById('guessTapStatus');
   const guessSlider = document.getElementById('guessSlider');
   const guessInput = document.getElementById('guessInput');
   const guessConfirmBtn = document.getElementById('guessConfirmBtn');
   const guessNextBtn = document.getElementById('guessNextBtn');
   const guessFeedback = document.getElementById('guessFeedback');
-
-  function guessLoop(now) {
-    if (activeMode === 'guess' && guessIsObserving && !guessRoundCompleted) {
-      const elapsed = now - guessStartTime;
-      const remainingMs = Math.max(0, OBSERVE_DURATION_MS - elapsed);
-
-      guessPhaseBadge.textContent = `Observation : ${(remainingMs / 1000).toFixed(1)}s`;
-
-      if (remainingMs > 0) {
-        const beatInterval = 60000 / guessTargetBpm;
-        const currentBeatIndex = Math.floor(elapsed / beatInterval);
-        const timeInsideBeat = elapsed % beatInterval;
-
-        if (currentBeatIndex !== guessLastBeatIndex) {
-          guessLastBeatIndex = currentBeatIndex;
-          playClick(true);
-        }
-
-        const isTickActive = timeInsideBeat < Math.min(TICK_VISIBLE_MS, beatInterval * 0.45);
-        guessMetronomeOrb.classList.toggle('tick', isTickActive);
-      } else {
-        stopGuessObservation();
-      }
-    }
-    requestAnimationFrame(guessLoop);
-  }
 
   function stopGuessObservation() {
     guessIsObserving = false;
@@ -172,7 +164,10 @@
     guessMetronomeOrb.classList.add('stopped');
     guessPhaseBadge.textContent = 'Métronome arrêté — À toi de jouer';
     guessPhaseBadge.classList.add('blind');
-    guessInstruction.innerHTML = 'Le tempo s\'est arrêté. Continue de taper de mémoire ou ajuste le curseur, puis confirme.';
+    guessInstruction.innerHTML = 'Le tempo s\'est arrêté. Tape de mémoire ou ajuste le curseur, puis confirme.';
+
+    guessTapBtn.disabled = false;
+    guessTapBtn.textContent = "TAPER LE RYTHME (n'importe quelle touche)";
   }
 
   function startGuessRound() {
@@ -189,9 +184,10 @@
     guessOrbLabel.textContent = 'BPM CIBLE';
     guessFeedback.textContent = '';
 
-    guessInstruction.innerHTML = 'Le métronome bat pendant <strong>10 secondes</strong>. Appuie sur n\'importe quelle touche pour suivre le tempo.';
-    guessTapBtn.disabled = false;
-    guessTapStatus.textContent = 'Tape plusieurs fois pour estimer le BPM';
+    guessInstruction.innerHTML = 'Observe le métronome pendant <strong>10 secondes</strong> avant de pouvoir taper le rythme.';
+    guessTapBtn.disabled = true;
+    guessTapBtn.textContent = 'OBSERVE LE TEMPO...';
+
     guessSlider.disabled = false;
     guessInput.disabled = false;
 
@@ -200,7 +196,7 @@
   }
 
   function handleGuessTap() {
-    if (guessRoundCompleted) return;
+    if (guessRoundCompleted || guessIsObserving) return;
     const now = performance.now();
 
     guessTapBtn.classList.add('pressed');
@@ -215,10 +211,7 @@
       guessTapTimestamps.shift();
     }
 
-    if (guessTapTimestamps.length === 1) {
-      guessTapStatus.textContent = '1er temps enregistré — continue de taper...';
-      return;
-    }
+    if (guessTapTimestamps.length < 2) return;
 
     let totalInterval = 0;
     for (let i = 1; i < guessTapTimestamps.length; i++) {
@@ -229,7 +222,6 @@
 
     guessSlider.value = estimatedBpm;
     guessInput.value = estimatedBpm;
-    guessTapStatus.textContent = `Ton rythme : ~${estimatedBpm} BPM (${guessTapTimestamps.length} taps)`;
   }
 
   function confirmGuessRound() {
@@ -247,20 +239,17 @@
     guessPhaseBadge.classList.remove('blind');
 
     if (diff === 0) {
-      guessScore += 100;
-      guessFeedback.innerHTML = `<span style="color: var(--success)">🎯 PARFAIT ! Exactement ${guessTargetBpm} BPM (+100 pts)</span>`;
+      guessFeedback.innerHTML = `<span style="color: var(--success)">🎯 PARFAIT ! Exactement ${guessTargetBpm} BPM</span>`;
     } else if (diff <= 3) {
-      guessScore += 75;
-      guessFeedback.innerHTML = `<span style="color: var(--success)">🔥 Très précis ! À ${diff} BPM près (${guessTargetBpm} BPM) (+75 pts)</span>`;
+      guessFeedback.innerHTML = `<span style="color: var(--success)">🔥 Très précis ! À ${diff} BPM près (${guessTargetBpm} BPM)</span>`;
     } else if (diff <= 8) {
-      guessScore += 40;
-      guessFeedback.innerHTML = `<span style="color: var(--warning)">👍 Bien joué ! Écart de ${diff} BPM (${guessTargetBpm} BPM) (+40 pts)</span>`;
+      guessFeedback.innerHTML = `<span style="color: var(--warning)">👍 Bien joué ! Écart de ${diff} BPM (${guessTargetBpm} BPM)</span>`;
     } else {
       guessFeedback.innerHTML = `<span style="color: var(--danger)">❌ Trop loin ! C'était ${guessTargetBpm} BPM (écart de ${diff})</span>`;
     }
 
-    guessTotalScoreEl.textContent = guessScore;
     guessTapBtn.disabled = true;
+    guessTapBtn.textContent = "TAPER LE RYTHME (n'importe quelle touche)";
     guessSlider.disabled = true;
     guessInput.disabled = true;
 
@@ -284,39 +273,29 @@
   let tapTargetBPM = 100;
   let tapTimestamps = [];
   let tapIsFinished = false;
-  let metronomeInterval = null;
+  let isRefPlaying = false;
+  let refStartTime = 0;
+  let refLastBeatIndex = -1;
 
   const tapBtn = document.getElementById('tapBtn');
-  const tapRipple = document.getElementById('tapRipple');
-  const targetBox = document.getElementById('targetBox');
   const targetDisplay = document.getElementById('targetDisplay');
   const progressFill = document.getElementById('progressFill');
   const statusText = document.getElementById('statusText');
   const resultsBox = document.getElementById('resultsBox');
   const listenBtn = document.getElementById('listenBtn');
-  const dots = document.querySelectorAll('#beatDots .dot');
 
-  function triggerVisualBeat(type, index) {
-    dots.forEach((d) => d.classList.remove('active-tap', 'active-ref'));
-
-    const activeDot = dots[index % dots.length];
-    if (activeDot) {
-      activeDot.classList.add(type === 'ref' ? 'active-ref' : 'active-tap');
+  function setTapButtonVisualMode(mode) {
+    if (mode === 'metronome') {
+      tapBtn.classList.add('metronome-mode');
+      tapBtn.innerHTML = `${tapTargetBPM}<span class="tap-hint">Métronome</span>`;
+    } else {
+      tapBtn.classList.remove('metronome-mode', 'ref-tick');
+      tapBtn.innerHTML = `TAP<span class="tap-hint">(ou Barre d'espace)</span>`;
     }
-
-    if (type === 'tap') {
-      tapRipple.classList.remove('animate');
-      void tapRipple.offsetWidth;
-      tapRipple.classList.add('animate');
-    }
-  }
-
-  function clearBeatDots() {
-    dots.forEach((d) => d.classList.remove('active-tap', 'active-ref'));
   }
 
   function updateListenBtnLabel() {
-    if (metronomeInterval) {
+    if (isRefPlaying) {
       listenBtn.textContent = `⏹ Arrêter le métronome (${tapTargetBPM} BPM)`;
     } else {
       const icon = isMuted ? '👁️' : '👁️/🔊';
@@ -325,40 +304,25 @@
   }
 
   function toggleCorrectionMetronome() {
-    if (metronomeInterval) stopCorrectionMetronome();
+    if (isRefPlaying) stopCorrectionMetronome();
     else startCorrectionMetronome();
   }
 
   function startCorrectionMetronome() {
     stopCorrectionMetronome();
-    const intervalMs = 60000 / tapTargetBPM;
-    let refStep = 0;
+    isRefPlaying = true;
+    refStartTime = performance.now();
+    refLastBeatIndex = -1;
 
+    setTapButtonVisualMode('metronome');
     listenBtn.classList.add('playing');
     updateListenBtnLabel();
-
-    const tick = () => {
-      playClick(true);
-      triggerVisualBeat('ref', refStep);
-      refStep++;
-
-      targetBox.classList.add('pulse');
-      setTimeout(() => {
-        targetBox.classList.remove('pulse');
-      }, Math.min(120, intervalMs * 0.4));
-    };
-
-    tick();
-    metronomeInterval = setInterval(tick, intervalMs);
   }
 
   function stopCorrectionMetronome() {
-    if (metronomeInterval) {
-      clearInterval(metronomeInterval);
-      metronomeInterval = null;
-    }
-    targetBox.classList.remove('pulse');
-    clearBeatDots();
+    isRefPlaying = false;
+    refLastBeatIndex = -1;
+    setTapButtonVisualMode('tap');
     listenBtn.classList.remove('playing');
     updateListenBtnLabel();
   }
@@ -375,8 +339,6 @@
 
     tapTimestamps.push(now);
     const count = tapTimestamps.length;
-
-    triggerVisualBeat('tap', count - 1);
 
     const pct = Math.min((count / TOTAL_TAPS) * 100, 100);
     progressFill.style.width = `${pct}%`;
@@ -434,7 +396,7 @@
       verdictEl.textContent = '👍 Pas mal, mais le tempo dérive un peu.';
     } else {
       scoreEl.style.color = 'var(--danger)';
-      verdictEl.textContent = '😅 À côté du tempo ! Regardez le flash du vrai tempo.';
+      verdictEl.textContent = '😅 À côté du tempo ! Regardez le métronome sur le bouton.';
     }
 
     document.getElementById('userBpmVal').textContent = actualBPM.toFixed(1);
@@ -485,17 +447,6 @@
     updateListenBtnLabel();
   }
 
-  function setCustomBPM() {
-    const val = parseInt(document.getElementById('customBpmInput').value, 10);
-    if (val >= 40 && val <= 240) {
-      tapTargetBPM = val;
-      targetDisplay.textContent = tapTargetBPM;
-      resetTapRound(false);
-    }
-  }
-
-  document.getElementById('randomBpmBtn').addEventListener('click', () => resetTapRound(true));
-  document.getElementById('setBpmBtn').addEventListener('click', setCustomBPM);
   listenBtn.addEventListener('click', toggleCorrectionMetronome);
   document.getElementById('replayBtn').addEventListener('click', () => resetTapRound(false));
   document.getElementById('nextRoundBtn').addEventListener('click', () => resetTapRound(true));
@@ -506,16 +457,157 @@
   });
 
   // =========================================================
+  // MODE 3 : VIBRATION CONTINUE (Sans bouton Tap Tempo)
+  // =========================================================
+  let vibeTargetBpm = 110;
+  let vibeRoundCompleted = false;
+  let vibeIsRunning = false;
+  let vibeStartTime = 0;
+  let vibeLastBeatIndex = -1;
+
+  const vibeBadge = document.getElementById('vibeBadge');
+  const vibeOrb = document.getElementById('vibeOrb');
+  const vibeOrbValue = document.getElementById('vibeOrbValue');
+  const vibeOrbLabel = document.getElementById('vibeOrbLabel');
+  const vibeInstruction = document.getElementById('vibeInstruction');
+  const vibeSupportNote = document.getElementById('vibeSupportNote');
+  const vibeSlider = document.getElementById('vibeSlider');
+  const vibeInput = document.getElementById('vibeInput');
+  const vibeConfirmBtn = document.getElementById('vibeConfirmBtn');
+  const vibeNextBtn = document.getElementById('vibeNextBtn');
+  const vibeFeedback = document.getElementById('vibeFeedback');
+
+  if (!supportsVibration) {
+    vibeSupportNote.classList.remove('hidden');
+  }
+
+  function startVibeRound() {
+    vibeRoundCompleted = false;
+    vibeTargetBpm = getRandomBPM(60, 165);
+    vibeStartTime = performance.now();
+    vibeLastBeatIndex = -1;
+    vibeIsRunning = true;
+
+    vibeOrb.classList.remove('vibe-tick');
+    vibeBadge.textContent = '📳 Vibration continue';
+    vibeOrbValue.textContent = '?';
+    vibeOrbLabel.textContent = 'TEMPO VIBRANT';
+    vibeFeedback.textContent = '';
+
+    vibeSlider.disabled = false;
+    vibeInput.disabled = false;
+    vibeConfirmBtn.classList.remove('hidden');
+    vibeNextBtn.classList.add('hidden');
+  }
+
+  function confirmVibeRound() {
+    if (vibeRoundCompleted) return;
+    vibeRoundCompleted = true;
+    vibeIsRunning = false;
+    stopVibration();
+    vibeOrb.classList.remove('vibe-tick');
+
+    const guessVal = parseInt(vibeInput.value, 10) || 110;
+    const diff = Math.abs(vibeTargetBpm - guessVal);
+
+    vibeOrbValue.textContent = vibeTargetBpm;
+    vibeOrbLabel.textContent = 'BPM RÉEL';
+    vibeBadge.textContent = 'Résultat';
+
+    if (diff === 0) {
+      vibeFeedback.innerHTML = `<span style="color: var(--success)">🎯 PARFAIT ! Exactement ${vibeTargetBpm} BPM</span>`;
+    } else if (diff <= 3) {
+      vibeFeedback.innerHTML = `<span style="color: var(--success)">🔥 Très précis ! À ${diff} BPM près (${vibeTargetBpm} BPM)</span>`;
+    } else if (diff <= 8) {
+      vibeFeedback.innerHTML = `<span style="color: var(--warning)">👍 Bien joué ! Écart de ${diff} BPM (${vibeTargetBpm} BPM)</span>`;
+    } else {
+      vibeFeedback.innerHTML = `<span style="color: var(--danger)">❌ Trop loin ! C'était ${vibeTargetBpm} BPM (écart de ${diff})</span>`;
+    }
+
+    vibeSlider.disabled = true;
+    vibeInput.disabled = true;
+    vibeConfirmBtn.classList.add('hidden');
+    vibeNextBtn.classList.remove('hidden');
+  }
+
+  vibeSlider.addEventListener('input', (e) => { vibeInput.value = e.target.value; });
+  vibeInput.addEventListener('input', (e) => { vibeSlider.value = e.target.value; });
+  vibeConfirmBtn.addEventListener('click', confirmVibeRound);
+  vibeNextBtn.addEventListener('click', startVibeRound);
+
+  // =========================================================
+  // BOUCLE D'HORLOGE HAUTE PRÉCISION (LES 3 MODES)
+  // =========================================================
+  function masterLoop(now) {
+    // Horloge Mode 1 : Observation 10s
+    if (activeMode === 'guess' && guessIsObserving && !guessRoundCompleted) {
+      const elapsed = now - guessStartTime;
+      const remainingMs = Math.max(0, OBSERVE_DURATION_MS - elapsed);
+
+      guessPhaseBadge.textContent = `Observation : ${(remainingMs / 1000).toFixed(1)}s`;
+
+      if (remainingMs > 0) {
+        const beatInterval = 60000 / guessTargetBpm;
+        const currentBeatIndex = Math.floor(elapsed / beatInterval);
+        const timeInsideBeat = elapsed % beatInterval;
+
+        if (currentBeatIndex !== guessLastBeatIndex) {
+          guessLastBeatIndex = currentBeatIndex;
+          playClick(true);
+        }
+
+        const isTickActive = timeInsideBeat < Math.min(TICK_VISIBLE_MS, beatInterval * 0.45);
+        guessMetronomeOrb.classList.toggle('tick', isTickActive);
+      } else {
+        stopGuessObservation();
+      }
+    }
+
+    // Horloge Mode 2 : Métronome visuel précis sur le bouton TAP
+    if (activeMode === 'tap' && isRefPlaying) {
+      const elapsed = now - refStartTime;
+      const beatInterval = 60000 / tapTargetBPM;
+      const currentBeatIndex = Math.floor(elapsed / beatInterval);
+      const timeInsideBeat = elapsed % beatInterval;
+
+      if (currentBeatIndex !== refLastBeatIndex) {
+        refLastBeatIndex = currentBeatIndex;
+        playClick(true);
+      }
+
+      const isTickActive = timeInsideBeat < Math.min(TICK_VISIBLE_MS, beatInterval * 0.45);
+      tapBtn.classList.toggle('ref-tick', isTickActive);
+    }
+
+    // Horloge Mode 3 : Vibration continue
+    if (activeMode === 'vibe' && vibeIsRunning && !vibeRoundCompleted) {
+      const elapsed = now - vibeStartTime;
+      const beatInterval = 60000 / vibeTargetBpm;
+      const currentBeatIndex = Math.floor(elapsed / beatInterval);
+      const timeInsideBeat = elapsed % beatInterval;
+
+      if (currentBeatIndex !== vibeLastBeatIndex) {
+        vibeLastBeatIndex = currentBeatIndex;
+        triggerVibrationPulse();
+        playClick(true);
+      }
+
+      const isTickActive = timeInsideBeat < Math.min(TICK_VISIBLE_MS, beatInterval * 0.45);
+      vibeOrb.classList.toggle('vibe-tick', isTickActive);
+    }
+
+    requestAnimationFrame(masterLoop);
+  }
+
+  // =========================================================
   // RACCOURCIS CLAVIER UNIFIÉS
   // =========================================================
   window.addEventListener('keydown', (e) => {
     if (e.repeat) return;
 
-    // Laisse l'utilisateur saisir ses chiffres librement dans les champs <input type="number">
     if (document.activeElement && document.activeElement.tagName === 'INPUT') {
       if (e.code === 'Enter') {
         e.preventDefault();
-        if (activeMode === 'tap') setCustomBPM();
         document.activeElement.blur();
       }
       return;
@@ -535,7 +627,7 @@
       ];
       if (ignoredKeys.includes(e.key)) return;
 
-      if (!guessRoundCompleted) {
+      if (!guessRoundCompleted && !guessIsObserving) {
         e.preventDefault();
         handleGuessTap();
       }
@@ -546,6 +638,12 @@
           tapBtn.classList.add('active');
           registerTap();
         }
+      }
+    } else if (activeMode === 'vibe') {
+      if (e.code === 'Enter') {
+        e.preventDefault();
+        if (vibeRoundCompleted) startVibeRound();
+        else confirmVibeRound();
       }
     }
   });
@@ -586,5 +684,5 @@
   // =========================================================
   updateMuteUI();
   startGuessRound();
-  requestAnimationFrame(guessLoop);
+  requestAnimationFrame(masterLoop);
 })();

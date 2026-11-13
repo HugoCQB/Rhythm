@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>BPM Studio — Entraîneur de Tempo Visuel</title>
+  <title>BPM Studio — Entraîneur de Tempo</title>
 
   <!-- Configuration PWA -->
   <meta name="theme-color" content="#0f172a" />
@@ -29,26 +29,27 @@
       </div>
     </div>
 
-    <!-- Sélecteur de Mode -->
+    <!-- Sélecteur des 3 Modes -->
     <div class="mode-switcher" role="tablist">
       <button type="button" class="mode-tab active" id="tabGuess" data-mode="guess" role="tab" aria-selected="true">
-        1. Deviner le BPM
+        1. Deviner
       </button>
       <button type="button" class="mode-tab" id="tabTap" data-mode="tap" role="tab" aria-selected="false">
-        2. Produire le BPM
+        2. Produire
+      </button>
+      <button type="button" class="mode-tab" id="tabVibe" data-mode="vibe" role="tab" aria-selected="false">
+        3. Vibration
       </button>
     </div>
 
     <!-- =========================================================
-         MODE 1 : DEVINER LE BPM (10s d'observation puis à l'aveugle)
+         MODE 1 : DEVINER LE BPM (10s puis Tap Tempo)
          ========================================================= -->
     <section id="viewGuess" class="mode-view">
       <div class="guess-header-meta">
         <span class="phase-badge" id="guessPhaseBadge">Observation : 10.0s</span>
-        <span class="score-pill">Score : <strong id="guessTotalScore">0</strong></span>
       </div>
 
-      <!-- Métronome Visuel Net -->
       <div class="metronome-orb" id="guessMetronomeOrb">
         <span class="orb-value" id="guessOrbValue">?</span>
         <span class="orb-label" id="guessOrbLabel">BPM CIBLE</span>
@@ -56,13 +57,12 @@
 
       <div class="panel-box">
         <p class="subtitle compact" id="guessInstruction">
-          Le métronome bat pendant <strong>10 secondes</strong>. Appuie sur n'importe quelle touche pour suivre le tempo.
+          Observe le métronome pendant <strong>10 secondes</strong> avant de pouvoir taper le rythme.
         </p>
 
         <button type="button" class="btn-tap-inline" id="guessTapBtn">
-          TAPER LE RYTHME (n'importe quelle touche)
+          OBSERVE LE TEMPO...
         </button>
-        <div class="tap-status" id="guessTapStatus">Tape plusieurs fois pour estimer le BPM</div>
 
         <div class="slider-row">
           <input type="range" id="guessSlider" min="40" max="200" value="110" aria-label="Curseur BPM" />
@@ -79,7 +79,7 @@
     </section>
 
     <!-- =========================================================
-         MODE 2 : PRODUIRE LE BPM (12 frappes régulières)
+         MODE 2 : PRODUIRE LE BPM (12 frappes)
          ========================================================= -->
     <section id="viewTap" class="mode-view hidden">
       <div class="subtitle">Tapez 12 fois le plus régulièrement possible au tempo indiqué</div>
@@ -88,27 +88,12 @@
         <div class="target-label">Tempo Cible</div>
         <div class="target-bpm" id="targetDisplay">--</div>
         <div class="target-label">BPM</div>
-
-        <!-- Indicateur visuel de pulsation (4 temps) -->
-        <div class="beat-dots" id="beatDots">
-          <span class="dot"></span>
-          <span class="dot"></span>
-          <span class="dot"></span>
-          <span class="dot"></span>
-        </div>
-
-        <div class="controls-row">
-          <button type="button" class="btn-small" id="randomBpmBtn">🎲 Nouveau BPM</button>
-          <input type="number" id="customBpmInput" min="40" max="240" placeholder="Ex: 95" aria-label="BPM personnalisé" />
-          <button type="button" class="btn-small" id="setBpmBtn">Fixer</button>
-        </div>
       </div>
 
       <div class="tap-wrapper">
-        <div class="tap-ripple" id="tapRipple"></div>
         <button type="button" class="tap-btn" id="tapBtn">
           TAP
-          <span class="tap-hint">(ou Barre d'espace)</span>
+          <span class="tap-hint" id="tapHint">(ou Barre d'espace)</span>
         </button>
       </div>
 
@@ -148,6 +133,41 @@
           <button type="button" class="btn-secondary" id="replayBtn">Rejouer celui-ci</button>
           <button type="button" class="btn-primary" id="nextRoundBtn">Session suivante ➔</button>
         </div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         MODE 3 : VIBRATION CONTINUE (Sans bouton Tap Tempo)
+         ========================================================= -->
+    <section id="viewVibe" class="mode-view hidden">
+      <div class="guess-header-meta">
+        <span class="phase-badge vibe-badge" id="vibeBadge">📳 Vibration continue</span>
+      </div>
+
+      <div class="metronome-orb vibe-orb" id="vibeOrb">
+        <span class="orb-value" id="vibeOrbValue">?</span>
+        <span class="orb-label" id="vibeOrbLabel">TEMPO VIBRANT</span>
+      </div>
+
+      <div class="panel-box">
+        <p class="subtitle compact" id="vibeInstruction">
+          Sens la pulsation continue (sans tap tempo) et estime directement le BPM.
+        </p>
+        <p class="vibe-warning hidden" id="vibeSupportNote">
+          Appareil sans moteur de vibration détecté — repère visuel actif.
+        </p>
+
+        <div class="slider-row">
+          <input type="range" id="vibeSlider" min="40" max="200" value="110" aria-label="Curseur BPM Vibration" />
+          <input type="number" id="vibeInput" min="40" max="200" value="110" aria-label="Valeur BPM Vibration" />
+        </div>
+
+        <div class="action-buttons">
+          <button type="button" class="btn-primary" id="vibeConfirmBtn">Confirmer le BPM</button>
+          <button type="button" class="btn-success hidden" id="vibeNextBtn">BPM Suivant ➔</button>
+        </div>
+
+        <div class="feedback-line" id="vibeFeedback" role="status"></div>
       </div>
     </section>
   </div>
