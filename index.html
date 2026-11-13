@@ -3,97 +3,153 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>BPM Challenge — Test de Tempo</title>
+  <title>BPM Studio — Entraîneur de Tempo Visuel</title>
 
   <!-- Configuration PWA -->
   <meta name="theme-color" content="#0f172a" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="BPM Challenge" />
+  <meta name="apple-mobile-web-app-title" content="BPM Studio" />
 
   <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%230f172a'/%3E%3Ccircle cx='256' cy='256' r='170' fill='none' stroke='%2338bdf8' stroke-width='28'/%3E%3Ctext x='256' y='282' font-family='sans-serif' font-size='110' font-weight='bold' fill='%23f8fafc' text-anchor='middle'%3EBPM%3C/text%3E%3C/svg%3E" />
-
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon.svg" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
   <div class="container">
+    <!-- En-tête commun -->
     <div class="header-row">
-      <h1>BPM Challenge</h1>
+      <h1>BPM Studio</h1>
       <div class="header-actions">
-        <button id="muteBtn" class="btn-mute" title="Activer/Désactiver le son">🔊 Son</button>
-        <button id="installBtn" class="btn-install" hidden>📲 Installer</button>
-      </div>
-    </div>
-    <div class="subtitle">Tapez 12 fois le plus régulièrement possible au tempo indiqué</div>
-
-    <div class="target-box" id="targetBox">
-      <div class="target-label">Tempo Cible</div>
-      <div class="target-bpm" id="targetDisplay">--</div>
-      <div class="target-label">BPM</div>
-
-      <!-- Indicateur visuel de pulsation (4 temps) -->
-      <div class="beat-dots" id="beatDots">
-        <span class="dot"></span>
-        <span class="dot"></span>
-        <span class="dot"></span>
-        <span class="dot"></span>
-      </div>
-
-      <div class="controls-row">
-        <button class="btn-small" id="randomBpmBtn">🎲 Nouveau BPM</button>
-        <input type="number" id="customBpmInput" min="40" max="240" placeholder="Ex: 95" />
-        <button class="btn-small" id="setBpmBtn">Fixer</button>
+        <button type="button" id="muteBtn" class="btn-mute" title="Activer/Désactiver le son">🔇 Muet</button>
+        <button type="button" id="installBtn" class="btn-install" hidden>📲 Installer</button>
       </div>
     </div>
 
-    <div class="tap-wrapper">
-      <div class="tap-ripple" id="tapRipple"></div>
-      <button class="tap-btn" id="tapBtn">
-        TAP
-        <span class="tap-hint">(ou Barre d'espace)</span>
+    <!-- Sélecteur de Mode -->
+    <div class="mode-switcher" role="tablist">
+      <button type="button" class="mode-tab active" id="tabGuess" data-mode="guess" role="tab" aria-selected="true">
+        1. Deviner le BPM
+      </button>
+      <button type="button" class="mode-tab" id="tabTap" data-mode="tap" role="tab" aria-selected="false">
+        2. Produire le BPM
       </button>
     </div>
 
-    <div class="progress-bar">
-      <div class="progress-fill" id="progressFill"></div>
-    </div>
-    <div class="status-text" id="statusText">Prêt : tapez pour démarrer (0 / 12)</div>
+    <!-- =========================================================
+         MODE 1 : DEVINER LE BPM (10s d'observation puis à l'aveugle)
+         ========================================================= -->
+    <section id="viewGuess" class="mode-view">
+      <div class="guess-header-meta">
+        <span class="phase-badge" id="guessPhaseBadge">Observation : 10.0s</span>
+        <span class="score-pill">Score : <strong id="guessTotalScore">0</strong></span>
+      </div>
 
-    <div class="results" id="resultsBox">
-      <div class="target-label">Précision Globale</div>
-      <div class="score-big" id="accuracyScore">98.5%</div>
-      <div id="verdictText" class="verdict-text"></div>
+      <!-- Métronome Visuel Net -->
+      <div class="metronome-orb" id="guessMetronomeOrb">
+        <span class="orb-value" id="guessOrbValue">?</span>
+        <span class="orb-label" id="guessOrbLabel">BPM CIBLE</span>
+      </div>
 
-      <div class="metrics">
-        <div class="metric-card">
-          <div class="metric-val" id="userBpmVal">--</div>
-          <div class="metric-lbl">Votre BPM</div>
+      <div class="panel-box">
+        <p class="subtitle compact" id="guessInstruction">
+          Le métronome bat pendant <strong>10 secondes</strong>. Appuie sur n'importe quelle touche pour suivre le tempo.
+        </p>
+
+        <button type="button" class="btn-tap-inline" id="guessTapBtn">
+          TAPER LE RYTHME (n'importe quelle touche)
+        </button>
+        <div class="tap-status" id="guessTapStatus">Tape plusieurs fois pour estimer le BPM</div>
+
+        <div class="slider-row">
+          <input type="range" id="guessSlider" min="40" max="200" value="110" aria-label="Curseur BPM" />
+          <input type="number" id="guessInput" min="40" max="200" value="110" aria-label="Valeur BPM" />
         </div>
-        <div class="metric-card">
-          <div class="metric-val" id="diffBpmVal">--</div>
-          <div class="metric-lbl">Écart</div>
+
+        <div class="action-buttons">
+          <button type="button" class="btn-primary" id="guessConfirmBtn">Confirmer le BPM</button>
+          <button type="button" class="btn-success hidden" id="guessNextBtn">BPM Suivant ➔</button>
         </div>
-        <div class="metric-card">
-          <div class="metric-val" id="consistencyVal">--</div>
-          <div class="metric-lbl">Constance</div>
+
+        <div class="feedback-line" id="guessFeedback" role="status"></div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         MODE 2 : PRODUIRE LE BPM (12 frappes régulières)
+         ========================================================= -->
+    <section id="viewTap" class="mode-view hidden">
+      <div class="subtitle">Tapez 12 fois le plus régulièrement possible au tempo indiqué</div>
+
+      <div class="target-box" id="targetBox">
+        <div class="target-label">Tempo Cible</div>
+        <div class="target-bpm" id="targetDisplay">--</div>
+        <div class="target-label">BPM</div>
+
+        <!-- Indicateur visuel de pulsation (4 temps) -->
+        <div class="beat-dots" id="beatDots">
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+        </div>
+
+        <div class="controls-row">
+          <button type="button" class="btn-small" id="randomBpmBtn">🎲 Nouveau BPM</button>
+          <input type="number" id="customBpmInput" min="40" max="240" placeholder="Ex: 95" aria-label="BPM personnalisé" />
+          <button type="button" class="btn-small" id="setBpmBtn">Fixer</button>
         </div>
       </div>
 
-      <div class="target-label bars-label">Régularité de chaque frappe</div>
-      <div class="bars-container" id="barsContainer"></div>
-
-      <button class="btn-listen" id="listenBtn">
-        👁️ Voir le vrai tempo (<span id="listenBpmLabel">--</span> BPM)
-      </button>
-
-      <div class="action-buttons">
-        <button class="btn-secondary" id="replayBtn">Rejouer celui-ci</button>
-        <button class="btn-primary" id="nextRoundBtn">Session suivante (Nouveau BPM) ➔</button>
+      <div class="tap-wrapper">
+        <div class="tap-ripple" id="tapRipple"></div>
+        <button type="button" class="tap-btn" id="tapBtn">
+          TAP
+          <span class="tap-hint">(ou Barre d'espace)</span>
+        </button>
       </div>
-    </div>
+
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="status-text" id="statusText">Prêt : tapez pour démarrer (0 / 12)</div>
+
+      <div class="results" id="resultsBox">
+        <div class="target-label">Précision Globale</div>
+        <div class="score-big" id="accuracyScore">98.5%</div>
+        <div id="verdictText" class="verdict-text"></div>
+
+        <div class="metrics">
+          <div class="metric-card">
+            <div class="metric-val" id="userBpmVal">--</div>
+            <div class="metric-lbl">Votre BPM</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-val" id="diffBpmVal">--</div>
+            <div class="metric-lbl">Écart</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-val" id="consistencyVal">--</div>
+            <div class="metric-lbl">Constance</div>
+          </div>
+        </div>
+
+        <div class="target-label bars-label">Régularité de chaque frappe</div>
+        <div class="bars-container" id="barsContainer"></div>
+
+        <button type="button" class="btn-listen" id="listenBtn">
+          👁️ Voir le vrai tempo
+        </button>
+
+        <div class="action-buttons">
+          <button type="button" class="btn-secondary" id="replayBtn">Rejouer celui-ci</button>
+          <button type="button" class="btn-primary" id="nextRoundBtn">Session suivante ➔</button>
+        </div>
+      </div>
+    </section>
   </div>
 
   <script src="app.js"></script>
