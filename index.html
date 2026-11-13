@@ -29,16 +29,13 @@
       </div>
     </div>
 
-    <!-- Sélecteur des 3 Modes -->
+    <!-- Sélecteur des 2 Modes -->
     <div class="mode-switcher" role="tablist">
       <button type="button" class="mode-tab active" id="tabGuess" data-mode="guess" role="tab" aria-selected="true">
-        1. Deviner
+        1. Deviner le BPM
       </button>
       <button type="button" class="mode-tab" id="tabTap" data-mode="tap" role="tab" aria-selected="false">
-        2. Produire
-      </button>
-      <button type="button" class="mode-tab" id="tabVibe" data-mode="vibe" role="tab" aria-selected="false">
-        3. Vibration
+        2. Produire le BPM
       </button>
     </div>
 
@@ -133,41 +130,6 @@
           <button type="button" class="btn-secondary" id="replayBtn">Rejouer celui-ci</button>
           <button type="button" class="btn-primary" id="nextRoundBtn">Session suivante ➔</button>
         </div>
-      </div>
-    </section>
-
-    <!-- =========================================================
-         MODE 3 : VIBRATION CONTINUE (Sans bouton Tap Tempo)
-         ========================================================= -->
-    <section id="viewVibe" class="mode-view hidden">
-      <div class="guess-header-meta">
-        <span class="phase-badge vibe-badge" id="vibeBadge">📳 Vibration continue</span>
-      </div>
-
-      <div class="metronome-orb vibe-orb" id="vibeOrb">
-        <span class="orb-value" id="vibeOrbValue">?</span>
-        <span class="orb-label" id="vibeOrbLabel">TEMPO VIBRANT</span>
-      </div>
-
-      <div class="panel-box">
-        <p class="subtitle compact" id="vibeInstruction">
-          Sens la pulsation continue (sans tap tempo) et estime directement le BPM.
-        </p>
-        <p class="vibe-warning hidden" id="vibeSupportNote">
-          Appareil sans moteur de vibration détecté — repère visuel actif.
-        </p>
-
-        <div class="slider-row">
-          <input type="range" id="vibeSlider" min="40" max="200" value="110" aria-label="Curseur BPM Vibration" />
-          <input type="number" id="vibeInput" min="40" max="200" value="110" aria-label="Valeur BPM Vibration" />
-        </div>
-
-        <div class="action-buttons">
-          <button type="button" class="btn-primary" id="vibeConfirmBtn">Confirmer le BPM</button>
-          <button type="button" class="btn-success hidden" id="vibeNextBtn">BPM Suivant ➔</button>
-        </div>
-
-        <div class="feedback-line" id="vibeFeedback" role="status"></div>
       </div>
     </section>
   </div>

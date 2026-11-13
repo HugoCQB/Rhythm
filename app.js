@@ -2,7 +2,7 @@
   // =========================================================
   // ÉTAT GLOBAL & AUDIO PARTAGÉ
   // =========================================================
-  let activeMode = 'guess'; // 'guess' | 'tap' | 'vibe'
+  let activeMode = 'guess'; // 'guess' | 'tap'
   let audioCtx = null;
   let deferredPrompt = null;
   let isMuted = localStorage.getItem('bpm_muted') !== null
@@ -10,17 +10,13 @@
     : true;
 
   const TICK_VISIBLE_MS = 95;
-  const VIBRATE_PULSE_MS = 40;
-  const supportsVibration = typeof navigator !== 'undefined' && 'vibrate' in navigator;
 
   const muteBtn = document.getElementById('muteBtn');
   const installBtn = document.getElementById('installBtn');
   const tabGuess = document.getElementById('tabGuess');
   const tabTap = document.getElementById('tabTap');
-  const tabVibe = document.getElementById('tabVibe');
   const viewGuess = document.getElementById('viewGuess');
   const viewTap = document.getElementById('viewTap');
-  const viewVibe = document.getElementById('viewVibe');
 
   function ensureAudioCtx() {
     if (!audioCtx) {
@@ -57,22 +53,6 @@
     osc.stop(audioCtx.currentTime + 0.05);
   }
 
-  function triggerVibrationPulse() {
-    if (supportsVibration) {
-      try {
-        navigator.vibrate(VIBRATE_PULSE_MS);
-      } catch (_) {}
-    }
-  }
-
-  function stopVibration() {
-    if (supportsVibration) {
-      try {
-        navigator.vibrate(0);
-      } catch (_) {}
-    }
-  }
-
   function updateMuteUI() {
     if (isMuted) {
       muteBtn.classList.add('muted');
@@ -102,35 +82,33 @@
     if (activeMode === newMode) return;
     activeMode = newMode;
 
-    // Nettoyage des boucles actives
     stopCorrectionMetronome();
-    stopVibration();
     guessIsObserving = false;
-    vibeIsRunning = false;
     guessMetronomeOrb.classList.remove('tick');
-    vibeOrb.classList.remove('vibe-tick');
 
-    const tabs = [
-      { el: tabGuess, mode: 'guess', view: viewGuess },
-      { el: tabTap, mode: 'tap', view: viewTap },
-      { el: tabVibe, mode: 'vibe', view: viewVibe }
-    ];
+    if (activeMode === 'guess') {
+      tabGuess.classList.add('active');
+      tabGuess.setAttribute('aria-selected', 'true');
+      tabTap.classList.remove('active');
+      tabTap.setAttribute('aria-selected', 'false');
 
-    tabs.forEach((t) => {
-      const isActive = t.mode === activeMode;
-      t.el.classList.toggle('active', isActive);
-      t.el.setAttribute('aria-selected', String(isActive));
-      t.view.classList.toggle('hidden', !isActive);
-    });
+      viewGuess.classList.remove('hidden');
+      viewTap.classList.add('hidden');
+      startGuessRound();
+    } else {
+      tabTap.classList.add('active');
+      tabTap.setAttribute('aria-selected', 'true');
+      tabGuess.classList.remove('active');
+      tabGuess.setAttribute('aria-selected', 'false');
 
-    if (activeMode === 'guess') startGuessRound();
-    else if (activeMode === 'tap') resetTapRound(true);
-    else if (activeMode === 'vibe') startVibeRound();
+      viewTap.classList.remove('hidden');
+      viewGuess.classList.add('hidden');
+      resetTapRound(true);
+    }
   }
 
   tabGuess.addEventListener('click', () => switchMode('guess'));
   tabTap.addEventListener('click', () => switchMode('tap'));
-  tabVibe.addEventListener('click', () => switchMode('vibe'));
 
   // =========================================================
   // MODE 1 : DEVINER LE BPM (10s observation puis Tap Tempo)
@@ -457,86 +435,7 @@
   });
 
   // =========================================================
-  // MODE 3 : VIBRATION CONTINUE (Sans bouton Tap Tempo)
-  // =========================================================
-  let vibeTargetBpm = 110;
-  let vibeRoundCompleted = false;
-  let vibeIsRunning = false;
-  let vibeStartTime = 0;
-  let vibeLastBeatIndex = -1;
-
-  const vibeBadge = document.getElementById('vibeBadge');
-  const vibeOrb = document.getElementById('vibeOrb');
-  const vibeOrbValue = document.getElementById('vibeOrbValue');
-  const vibeOrbLabel = document.getElementById('vibeOrbLabel');
-  const vibeInstruction = document.getElementById('vibeInstruction');
-  const vibeSupportNote = document.getElementById('vibeSupportNote');
-  const vibeSlider = document.getElementById('vibeSlider');
-  const vibeInput = document.getElementById('vibeInput');
-  const vibeConfirmBtn = document.getElementById('vibeConfirmBtn');
-  const vibeNextBtn = document.getElementById('vibeNextBtn');
-  const vibeFeedback = document.getElementById('vibeFeedback');
-
-  if (!supportsVibration) {
-    vibeSupportNote.classList.remove('hidden');
-  }
-
-  function startVibeRound() {
-    vibeRoundCompleted = false;
-    vibeTargetBpm = getRandomBPM(60, 165);
-    vibeStartTime = performance.now();
-    vibeLastBeatIndex = -1;
-    vibeIsRunning = true;
-
-    vibeOrb.classList.remove('vibe-tick');
-    vibeBadge.textContent = '📳 Vibration continue';
-    vibeOrbValue.textContent = '?';
-    vibeOrbLabel.textContent = 'TEMPO VIBRANT';
-    vibeFeedback.textContent = '';
-
-    vibeSlider.disabled = false;
-    vibeInput.disabled = false;
-    vibeConfirmBtn.classList.remove('hidden');
-    vibeNextBtn.classList.add('hidden');
-  }
-
-  function confirmVibeRound() {
-    if (vibeRoundCompleted) return;
-    vibeRoundCompleted = true;
-    vibeIsRunning = false;
-    stopVibration();
-    vibeOrb.classList.remove('vibe-tick');
-
-    const guessVal = parseInt(vibeInput.value, 10) || 110;
-    const diff = Math.abs(vibeTargetBpm - guessVal);
-
-    vibeOrbValue.textContent = vibeTargetBpm;
-    vibeOrbLabel.textContent = 'BPM RÉEL';
-    vibeBadge.textContent = 'Résultat';
-
-    if (diff === 0) {
-      vibeFeedback.innerHTML = `<span style="color: var(--success)">🎯 PARFAIT ! Exactement ${vibeTargetBpm} BPM</span>`;
-    } else if (diff <= 3) {
-      vibeFeedback.innerHTML = `<span style="color: var(--success)">🔥 Très précis ! À ${diff} BPM près (${vibeTargetBpm} BPM)</span>`;
-    } else if (diff <= 8) {
-      vibeFeedback.innerHTML = `<span style="color: var(--warning)">👍 Bien joué ! Écart de ${diff} BPM (${vibeTargetBpm} BPM)</span>`;
-    } else {
-      vibeFeedback.innerHTML = `<span style="color: var(--danger)">❌ Trop loin ! C'était ${vibeTargetBpm} BPM (écart de ${diff})</span>`;
-    }
-
-    vibeSlider.disabled = true;
-    vibeInput.disabled = true;
-    vibeConfirmBtn.classList.add('hidden');
-    vibeNextBtn.classList.remove('hidden');
-  }
-
-  vibeSlider.addEventListener('input', (e) => { vibeInput.value = e.target.value; });
-  vibeInput.addEventListener('input', (e) => { vibeSlider.value = e.target.value; });
-  vibeConfirmBtn.addEventListener('click', confirmVibeRound);
-  vibeNextBtn.addEventListener('click', startVibeRound);
-
-  // =========================================================
-  // BOUCLE D'HORLOGE HAUTE PRÉCISION (LES 3 MODES)
+  // BOUCLE D'HORLOGE HAUTE PRÉCISION (LES 2 MODES)
   // =========================================================
   function masterLoop(now) {
     // Horloge Mode 1 : Observation 10s
@@ -577,23 +476,6 @@
 
       const isTickActive = timeInsideBeat < Math.min(TICK_VISIBLE_MS, beatInterval * 0.45);
       tapBtn.classList.toggle('ref-tick', isTickActive);
-    }
-
-    // Horloge Mode 3 : Vibration continue
-    if (activeMode === 'vibe' && vibeIsRunning && !vibeRoundCompleted) {
-      const elapsed = now - vibeStartTime;
-      const beatInterval = 60000 / vibeTargetBpm;
-      const currentBeatIndex = Math.floor(elapsed / beatInterval);
-      const timeInsideBeat = elapsed % beatInterval;
-
-      if (currentBeatIndex !== vibeLastBeatIndex) {
-        vibeLastBeatIndex = currentBeatIndex;
-        triggerVibrationPulse();
-        playClick(true);
-      }
-
-      const isTickActive = timeInsideBeat < Math.min(TICK_VISIBLE_MS, beatInterval * 0.45);
-      vibeOrb.classList.toggle('vibe-tick', isTickActive);
     }
 
     requestAnimationFrame(masterLoop);
@@ -638,12 +520,6 @@
           tapBtn.classList.add('active');
           registerTap();
         }
-      }
-    } else if (activeMode === 'vibe') {
-      if (e.code === 'Enter') {
-        e.preventDefault();
-        if (vibeRoundCompleted) startVibeRound();
-        else confirmVibeRound();
       }
     }
   });

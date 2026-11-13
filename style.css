@@ -5,7 +5,6 @@
   --accent: #38bdf8;
   --accent-hover: #0ea5e9;
   --purple: #a855f7;
-  --amber: #f59e0b;
   --success: #22c55e;
   --warning: #f59e0b;
   --danger: #ef4444;
@@ -96,10 +95,10 @@ h1 {
   cursor: pointer;
 }
 
-/* --- ONGLETS DES 3 MODES --- */
+/* --- ONGLETS DES 2 MODES --- */
 .mode-switcher {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 6px;
   background: var(--panel);
   padding: 5px;
@@ -112,9 +111,9 @@ h1 {
   background: transparent;
   border: none;
   color: var(--muted);
-  padding: 9px 6px;
+  padding: 9px 10px;
   border-radius: 10px;
-  font-size: 0.82rem;
+  font-size: 0.86rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -136,7 +135,7 @@ h1 {
 }
 
 /* =========================================================
-   STYLES COMMUNS MODES 1 & 3 (Métronome / Vibration)
+   STYLES MODE 1 : DEVINER LE BPM (Métronome Visuel Net)
    ========================================================= */
 .guess-header-meta {
   display: flex;
@@ -162,11 +161,6 @@ h1 {
   color: var(--muted);
 }
 
-.phase-badge.vibe-badge {
-  background: rgba(245, 158, 11, 0.16);
-  color: var(--amber);
-}
-
 .metronome-orb {
   width: 175px;
   height: 175px;
@@ -183,12 +177,6 @@ h1 {
 .metronome-orb.tick {
   background: #17304d;
   border-color: var(--accent);
-}
-
-.metronome-orb.vibe-orb.vibe-tick {
-  background: #332510;
-  border-color: var(--amber);
-  transform: translateX(2px);
 }
 
 .metronome-orb.stopped {
@@ -216,12 +204,6 @@ h1 {
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 18px;
   padding: 18px 16px;
-}
-
-.vibe-warning {
-  font-size: 0.76rem;
-  color: var(--amber);
-  margin: -8px 0 14px;
 }
 
 .btn-tap-inline {
