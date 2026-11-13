@@ -5,9 +5,11 @@ let isFinished = false;
 let audioCtx = null;
 let metronomeInterval = null;
 let deferredPrompt = null;
+let beatStep = 0;
+let isMuted = localStorage.getItem('bpm_muted') === 'true';
 
-// Sélecteurs DOM
 const tapBtn = document.getElementById('tapBtn');
+const tapRipple = document.getElementById('tapRipple');
 const targetBox = document.getElementById('targetBox');
 const targetDisplay = document.getElementById('targetDisplay');
 const progressFill = document.getElementById('progressFill');
@@ -15,6 +17,25 @@ const statusText = document.getElementById('statusText');
 const resultsBox = document.getElementById('resultsBox');
 const listenBtn = document.getElementById('listenBtn');
 const installBtn = document.getElementById('installBtn');
+const muteBtn = document.getElementById('muteBtn');
+const dots = document.querySelectorAll('#beatDots .dot');
+
+function updateMuteUI() {
+  if (isMuted) {
+    muteBtn.classList.add('muted');
+    muteBtn.textContent = '🔇 Muet';
+  } else {
+    muteBtn.classList.remove('muted');
+    muteBtn.textContent = '🔊 Son';
+  }
+}
+
+muteBtn.addEventListener('click', function() {
+  isMuted = !isMuted;
+  localStorage.setItem('bpm_muted', isMuted);
+  updateMuteUI();
+  updateListenBtnLabel();
+});
 
 function getRandomBPM() {
   return Math.floor(Math.random() * (155 - 60 + 1)) + 60;
@@ -22,14 +43,16 @@ function getRandomBPM() {
 
 function ensureAudioCtx() {
   if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AudioContextClass();
   }
   if (audioCtx.state === 'suspended') {
     audioCtx.resume();
   }
 }
 
-function playClick(isReference = false) {
+function playClick(isReference) {
+  if (isMuted) return;
   ensureAudioCtx();
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
@@ -53,7 +76,38 @@ function playClick(isReference = false) {
   osc.stop(audioCtx.currentTime + 0.05);
 }
 
-// Métronome de correction
+function triggerVisualBeat(type, index) {
+  dots.forEach(function(d) {
+    d.classList.remove('active-tap', 'active-ref');
+  });
+
+  const activeDot = dots[index % dots.length];
+  if (activeDot) {
+    activeDot.classList.add(type === 'ref' ? 'active-ref' : 'active-tap');
+  }
+
+  if (type === 'tap') {
+    tapRipple.classList.remove('animate');
+    void tapRipple.offsetWidth; // Force le redémarrage de l'animation CSS
+    tapRipple.classList.add('animate');
+  }
+}
+
+function clearBeatDots() {
+  dots.forEach(function(d) {
+    d.classList.remove('active-tap', 'active-ref');
+  });
+}
+
+function updateListenBtnLabel() {
+  if (metronomeInterval) {
+    listenBtn.textContent = "⏹ Arrêter le métronome (" + targetBPM + " BPM)";
+  } else {
+    const icon = isMuted ? "👁️" : "👁️/🔊";
+    listenBtn.textContent = icon + " Voir le vrai tempo (" + targetBPM + " BPM)";
+  }
+}
+
 function toggleCorrectionMetronome() {
   if (metronomeInterval) {
     stopCorrectionMetronome();
@@ -65,14 +119,20 @@ function toggleCorrectionMetronome() {
 function startCorrectionMetronome() {
   stopCorrectionMetronome();
   const intervalMs = 60000 / targetBPM;
+  let refStep = 0;
 
   listenBtn.classList.add('playing');
-  listenBtn.innerHTML = `⏹ Arrêter l'écoute (${targetBPM} BPM)`;
+  updateListenBtnLabel();
 
-  const tick = () => {
+  const tick = function() {
     playClick(true);
+    triggerVisualBeat('ref', refStep);
+    refStep++;
+
     targetBox.classList.add('pulse');
-    setTimeout(() => targetBox.classList.remove('pulse'), 100);
+    setTimeout(function() {
+      targetBox.classList.remove('pulse');
+    }, Math.min(120, intervalMs * 0.4));
   };
 
   tick();
@@ -85,8 +145,9 @@ function stopCorrectionMetronome() {
     metronomeInterval = null;
   }
   targetBox.classList.remove('pulse');
+  clearBeatDots();
   listenBtn.classList.remove('playing');
-  listenBtn.innerHTML = `🔊 Écouter le vrai tempo (<span id="listenBpmLabel">${targetBPM}</span> BPM)`;
+  updateListenBtnLabel();
 }
 
 function registerTap() {
@@ -102,11 +163,13 @@ function registerTap() {
   timestamps.push(now);
   const count = timestamps.length;
 
+  triggerVisualBeat('tap', count - 1);
+
   const pct = Math.min((count / TOTAL_TAPS) * 100, 100);
   progressFill.style.width = pct + '%';
 
   if (count < TOTAL_TAPS) {
-    statusText.textContent = `Continuez régulièrement... (${count} / ${TOTAL_TAPS})`;
+    statusText.textContent = "Continuez régulièrement... (" + count + " / " + TOTAL_TAPS + ")";
   } else {
     finishRound();
   }
@@ -115,7 +178,7 @@ function registerTap() {
 function finishRound() {
   isFinished = true;
   tapBtn.disabled = true;
-  statusText.textContent = `Terminé ! Écoutez le vrai tempo ou passez au suivant.`;
+  statusText.textContent = "Terminé ! Comparez avec le vrai tempo ci-dessous.";
 
   const intervals = [];
   for (let i = 1; i < timestamps.length; i++) {
@@ -123,13 +186,15 @@ function finishRound() {
   }
 
   const targetInterval = 60000 / targetBPM;
-  const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+  const avgInterval = intervals.reduce(function(a, b) { return a + b; }, 0) / intervals.length;
   const actualBPM = 60000 / avgInterval;
 
   const bpmErrorRatio = Math.abs(actualBPM - targetBPM) / targetBPM;
   const targetAccuracy = Math.max(0, (1 - bpmErrorRatio) * 100);
 
-  const variance = intervals.reduce((sum, val) => sum + Math.pow(val - avgInterval, 2), 0) / intervals.length;
+  const variance = intervals.reduce(function(sum, val) {
+    return sum + Math.pow(val - avgInterval, 2);
+  }, 0) / intervals.length;
   const stdDev = Math.sqrt(variance);
   const jitterRatio = stdDev / avgInterval;
   const consistency = Math.max(0, (1 - jitterRatio * 1.5) * 100);
@@ -149,16 +214,16 @@ function displayResults(actualBPM, globalScore, consistency, intervals, targetIn
 
   if (globalScore >= 96) {
     scoreEl.style.color = 'var(--success)';
-    verdictEl.textContent = '🎯 Métronome humain ! Précision chirurgicale.';
+    verdictEl.textContent = "🎯 Métronome humain ! Précision chirurgicale.";
   } else if (globalScore >= 90) {
     scoreEl.style.color = 'var(--accent)';
-    verdictEl.textContent = '🔥 Très solide ! Excellent sens du rythme.';
+    verdictEl.textContent = "🔥 Très solide ! Excellent sens du rythme.";
   } else if (globalScore >= 80) {
     scoreEl.style.color = 'var(--warning)';
-    verdictEl.textContent = '👍 Pas mal, mais le tempo dérive un peu.';
+    verdictEl.textContent = "👍 Pas mal, mais le tempo dérive un peu.";
   } else {
     scoreEl.style.color = 'var(--danger)';
-    verdictEl.textContent = '😅 À côté du tempo ! Écoute la correction ci-dessous.';
+    verdictEl.textContent = "😅 À côté du tempo ! Regardez le flash du vrai tempo.";
   }
 
   document.getElementById('userBpmVal').textContent = actualBPM.toFixed(1);
@@ -172,7 +237,7 @@ function displayResults(actualBPM, globalScore, consistency, intervals, targetIn
   const barsContainer = document.getElementById('barsContainer');
   barsContainer.innerHTML = '';
 
-  intervals.forEach((iv, idx) => {
+  intervals.forEach(function(iv, idx) {
     const bar = document.createElement('div');
     bar.className = 'bar';
     const errorPct = Math.abs(iv - targetInterval) / targetInterval;
@@ -184,19 +249,19 @@ function displayResults(actualBPM, globalScore, consistency, intervals, targetIn
     else bar.style.background = 'var(--danger)';
 
     const tapBpm = (60000 / iv).toFixed(0);
-    bar.title = `Frappe ${idx + 1}→${idx + 2} : ${tapBpm} BPM`;
+    bar.title = "Frappe " + (idx + 1) + "->" + (idx + 2) + " : " + tapBpm + " BPM";
     barsContainer.appendChild(bar);
   });
 }
 
-function resetRound(changeBpm = true) {
+function resetRound(changeBpm) {
   stopCorrectionMetronome();
   timestamps = [];
   isFinished = false;
   tapBtn.disabled = false;
   progressFill.style.width = '0%';
   resultsBox.style.display = 'none';
-  statusText.textContent = `Prêt : tapez pour démarrer (0 / ${TOTAL_TAPS})`;
+  statusText.textContent = "Prêt : tapez pour démarrer (0 / " + TOTAL_TAPS + ")";
 
   if (changeBpm) {
     let nextBpm = getRandomBPM();
@@ -206,6 +271,7 @@ function resetRound(changeBpm = true) {
     targetBPM = nextBpm;
     targetDisplay.textContent = targetBPM;
   }
+  updateListenBtnLabel();
 }
 
 function setCustomBPM() {
@@ -217,19 +283,18 @@ function setCustomBPM() {
   }
 }
 
-// Écouteurs d'événements UI
-document.getElementById('randomBpmBtn').addEventListener('click', () => resetRound(true));
+document.getElementById('randomBpmBtn').addEventListener('click', function() { resetRound(true); });
 document.getElementById('setBpmBtn').addEventListener('click', setCustomBPM);
 document.getElementById('listenBtn').addEventListener('click', toggleCorrectionMetronome);
-document.getElementById('replayBtn').addEventListener('click', () => resetRound(false));
-document.getElementById('nextRoundBtn').addEventListener('click', () => resetRound(true));
+document.getElementById('replayBtn').addEventListener('click', function() { resetRound(false); });
+document.getElementById('nextRoundBtn').addEventListener('click', function() { resetRound(true); });
 
-tapBtn.addEventListener('pointerdown', (e) => {
+tapBtn.addEventListener('pointerdown', function(e) {
   e.preventDefault();
   registerTap();
 });
 
-window.addEventListener('keydown', (e) => {
+window.addEventListener('keydown', function(e) {
   if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') {
     e.preventDefault();
     if (!e.repeat && !isFinished) {
@@ -239,28 +304,28 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-window.addEventListener('keyup', (e) => {
+window.addEventListener('keyup', function(e) {
   if (e.code === 'Space') {
     tapBtn.classList.remove('active');
   }
 });
 
-// --- PWA : Service Worker & Installation ---
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch((err) => {
+// PWA
+if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('./sw.js').catch(function(err) {
       console.warn('Service Worker non enregistré :', err);
     });
   });
 }
 
-window.addEventListener('beforeinstallprompt', (e) => {
+window.addEventListener('beforeinstallprompt', function(e) {
   e.preventDefault();
   deferredPrompt = e;
   installBtn.hidden = false;
 });
 
-installBtn.addEventListener('click', async () => {
+installBtn.addEventListener('click', async function() {
   if (!deferredPrompt) return;
   deferredPrompt.prompt();
   await deferredPrompt.userChoice;
@@ -268,5 +333,5 @@ installBtn.addEventListener('click', async () => {
   installBtn.hidden = true;
 });
 
-// Démarrage initial
+updateMuteUI();
 resetRound(true);

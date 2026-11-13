@@ -22,7 +22,10 @@
   <div class="container">
     <div class="header-row">
       <h1>BPM Challenge</h1>
-      <button id="installBtn" class="btn-install" hidden>📲 Installer</button>
+      <div class="header-actions">
+        <button id="muteBtn" class="btn-mute" title="Activer/Désactiver le son">🔊 Son</button>
+        <button id="installBtn" class="btn-install" hidden>📲 Installer</button>
+      </div>
     </div>
     <div class="subtitle">Tapez 12 fois le plus régulièrement possible au tempo indiqué</div>
 
@@ -31,6 +34,14 @@
       <div class="target-bpm" id="targetDisplay">--</div>
       <div class="target-label">BPM</div>
 
+      <!-- Indicateur visuel de pulsation (4 temps) -->
+      <div class="beat-dots" id="beatDots">
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+      </div>
+
       <div class="controls-row">
         <button class="btn-small" id="randomBpmBtn">🎲 Nouveau BPM</button>
         <input type="number" id="customBpmInput" min="40" max="240" placeholder="Ex: 95" />
@@ -38,10 +49,13 @@
       </div>
     </div>
 
-    <button class="tap-btn" id="tapBtn">
-      TAP
-      <span class="tap-hint">(ou Barre d'espace)</span>
-    </button>
+    <div class="tap-wrapper">
+      <div class="tap-ripple" id="tapRipple"></div>
+      <button class="tap-btn" id="tapBtn">
+        TAP
+        <span class="tap-hint">(ou Barre d'espace)</span>
+      </button>
+    </div>
 
     <div class="progress-bar">
       <div class="progress-fill" id="progressFill"></div>
@@ -72,7 +86,7 @@
       <div class="bars-container" id="barsContainer"></div>
 
       <button class="btn-listen" id="listenBtn">
-        🔊 Écouter le vrai tempo (<span id="listenBpmLabel">--</span> BPM)
+        👁️ Voir le vrai tempo (<span id="listenBpmLabel">--</span> BPM)
       </button>
 
       <div class="action-buttons">
@@ -84,4 +98,4 @@
 
   <script src="app.js"></script>
 </body>
-</html> 
+</html>
