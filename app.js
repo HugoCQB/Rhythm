@@ -1,4 +1,4 @@
-iconst TOTAL_TAPS = 12;
+const TOTAL_TAPS = 12;
 let targetBPM = 100;
 let timestamps = [];
 let isFinished = false;
