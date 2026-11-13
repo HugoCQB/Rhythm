@@ -530,20 +530,18 @@
     }
   });
 
-// =========================================================
+  // =========================================================
   // PWA (SERVICE WORKER & MISE À JOUR AUTOMATIQUE)
   // =========================================================
   if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js').then((reg) => {
-        // Vérifie régulièrement s'il y a une mise à jour
         reg.update();
       }).catch((err) => {
         console.warn('Service Worker non enregistré :', err);
       });
     });
 
-    // Recharge automatiquement la page quand un nouveau Service Worker prend le contrôle
     let refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (!refreshing) {
@@ -552,6 +550,20 @@
       }
     });
   }
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.hidden = false;
+  });
+
+  installBtn.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    installBtn.hidden = true;
+  });
 
   // =========================================================
   // INITIALISATION
