@@ -2,312 +2,28 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>BPM Challenge — Test de Tempo</title>
-  <style>
-    :root {
-      --bg: #0f172a;
-      --card: #1e293b;
-      --accent: #38bdf8;
-      --accent-hover: #0ea5e9;
-      --success: #22c55e;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-      --text: #f8fafc;
-      --muted: #94a3b8;
-    }
 
-    * {
-      box-sizing: border-box;
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-      user-select: none;
-    }
+  <!-- Configuration PWA -->
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="BPM Challenge" />
 
-    body {
-      margin: 0;
-      min-height: 100vh;
-      background: var(--bg);
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%230f172a'/%3E%3Ccircle cx='256' cy='256' r='170' fill='none' stroke='%2338bdf8' stroke-width='28'/%3E%3Ctext x='256' y='282' font-family='sans-serif' font-size='110' font-weight='bold' fill='%23f8fafc' text-anchor='middle'%3EBPM%3C/text%3E%3C/svg%3E" />
 
-    .container {
-      width: 100%;
-      max-width: 480px;
-      background: var(--card);
-      border-radius: 24px;
-      padding: 32px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
-      text-align: center;
-    }
-
-    h1 {
-      margin: 0 0 8px;
-      font-size: 1.5rem;
-      letter-spacing: -0.5px;
-    }
-
-    .subtitle {
-      color: var(--muted);
-      font-size: 0.9rem;
-      margin-bottom: 24px;
-    }
-
-    .target-box {
-      background: rgba(15, 23, 42, 0.6);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 16px;
-      padding: 20px;
-      margin-bottom: 24px;
-      transition: border-color 0.1s, box-shadow 0.1s;
-    }
-
-    .target-box.pulse {
-      border-color: var(--success);
-      box-shadow: 0 0 25px rgba(34, 197, 94, 0.35);
-    }
-
-    .target-label {
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-      color: var(--muted);
-    }
-
-    .target-bpm {
-      font-size: 3.5rem;
-      font-weight: 800;
-      color: var(--accent);
-      line-height: 1.1;
-      margin: 6px 0;
-    }
-
-    .controls-row {
-      display: flex;
-      gap: 8px;
-      justify-content: center;
-      margin-top: 12px;
-    }
-
-    .controls-row input {
-      width: 90px;
-      padding: 6px 10px;
-      border-radius: 8px;
-      border: 1px solid #334155;
-      background: #0f172a;
-      color: var(--text);
-      text-align: center;
-      font-weight: 600;
-    }
-
-    .btn-small {
-      background: #334155;
-      color: var(--text);
-      border: none;
-      border-radius: 8px;
-      padding: 6px 12px;
-      font-size: 0.85rem;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-
-    .btn-small:hover {
-      background: #475569;
-    }
-
-    .tap-btn {
-      width: 180px;
-      height: 180px;
-      border-radius: 50%;
-      border: 4px solid var(--accent);
-      background: radial-gradient(circle at top, #1e3a5f, #0f172a);
-      color: var(--text);
-      font-size: 1.3rem;
-      font-weight: 700;
-      cursor: pointer;
-      box-shadow: 0 0 30px rgba(56, 189, 248, 0.2);
-      transition: transform 0.06s ease, box-shadow 0.06s ease, background 0.1s;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 20px;
-    }
-
-    .tap-btn:active, .tap-btn.active {
-      transform: scale(0.93);
-      box-shadow: 0 0 45px rgba(56, 189, 248, 0.55);
-      background: var(--accent);
-      color: #0f172a;
-    }
-
-    .tap-btn:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-    }
-
-    .tap-hint {
-      font-size: 0.75rem;
-      font-weight: 400;
-      opacity: 0.75;
-      margin-top: 4px;
-    }
-
-    .progress-bar {
-      width: 100%;
-      height: 8px;
-      background: #0f172a;
-      border-radius: 99px;
-      overflow: hidden;
-      margin-bottom: 10px;
-    }
-
-    .progress-fill {
-      height: 100%;
-      width: 0%;
-      background: var(--accent);
-      transition: width 0.15s ease;
-    }
-
-    .status-text {
-      font-size: 0.9rem;
-      color: var(--muted);
-      min-height: 22px;
-    }
-
-    /* Résultats */
-    .results {
-      display: none;
-      margin-top: 24px;
-      padding-top: 20px;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-      animation: fadeIn 0.3s ease;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .score-big {
-      font-size: 2.6rem;
-      font-weight: 800;
-      margin: 4px 0;
-    }
-
-    .metrics {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin: 16px 0;
-    }
-
-    .metric-card {
-      background: rgba(15, 23, 42, 0.6);
-      padding: 12px 8px;
-      border-radius: 12px;
-    }
-
-    .metric-val {
-      font-size: 1.15rem;
-      font-weight: 700;
-    }
-
-    .metric-lbl {
-      font-size: 0.72rem;
-      color: var(--muted);
-      margin-top: 2px;
-    }
-
-    .bars-container {
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      gap: 6px;
-      height: 60px;
-      margin: 16px 0 8px;
-      padding: 8px;
-      background: rgba(15, 23, 42, 0.5);
-      border-radius: 10px;
-    }
-
-    .bar {
-      flex: 1;
-      border-radius: 4px;
-      min-height: 6px;
-      transition: height 0.3s;
-    }
-
-    .btn-listen {
-      width: 100%;
-      padding: 11px;
-      border-radius: 12px;
-      border: 1px solid var(--success);
-      background: rgba(34, 197, 94, 0.12);
-      color: var(--success);
-      font-weight: 700;
-      font-size: 0.95rem;
-      cursor: pointer;
-      margin-top: 12px;
-      transition: background 0.15s, color 0.15s;
-    }
-
-    .btn-listen:hover {
-      background: rgba(34, 197, 94, 0.22);
-    }
-
-    .btn-listen.playing {
-      background: var(--success);
-      color: #0f172a;
-    }
-
-    .action-buttons {
-      display: flex;
-      gap: 10px;
-      margin-top: 10px;
-    }
-
-    .btn-primary {
-      flex: 2;
-      padding: 12px;
-      border-radius: 12px;
-      border: none;
-      background: var(--accent);
-      color: #0f172a;
-      font-weight: 700;
-      font-size: 0.95rem;
-      cursor: pointer;
-    }
-
-    .btn-primary:hover {
-      background: var(--accent-hover);
-    }
-
-    .btn-secondary {
-      flex: 1;
-      padding: 12px;
-      border-radius: 12px;
-      border: 1px solid #334155;
-      background: transparent;
-      color: var(--muted);
-      font-weight: 600;
-      font-size: 0.85rem;
-      cursor: pointer;
-    }
-
-    .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.05);
-      color: var(--text);
-    }
-  </style>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
   <div class="container">
-    <h1>BPM Challenge</h1>
+    <div class="header-row">
+      <h1>BPM Challenge</h1>
+      <button id="installBtn" class="btn-install" hidden>📲 Installer</button>
+    </div>
     <div class="subtitle">Tapez 12 fois le plus régulièrement possible au tempo indiqué</div>
 
     <div class="target-box" id="targetBox">
@@ -316,9 +32,9 @@
       <div class="target-label">BPM</div>
 
       <div class="controls-row">
-        <button class="btn-small" onclick="resetRound(true)">🎲 Nouveau BPM</button>
+        <button class="btn-small" id="randomBpmBtn">🎲 Nouveau BPM</button>
         <input type="number" id="customBpmInput" min="40" max="240" placeholder="Ex: 95" />
-        <button class="btn-small" onclick="setCustomBPM()">Fixer</button>
+        <button class="btn-small" id="setBpmBtn">Fixer</button>
       </div>
     </div>
 
@@ -335,7 +51,7 @@
     <div class="results" id="resultsBox">
       <div class="target-label">Précision Globale</div>
       <div class="score-big" id="accuracyScore">98.5%</div>
-      <div id="verdictText" style="font-weight: 600; margin-bottom: 10px;"></div>
+      <div id="verdictText" class="verdict-text"></div>
 
       <div class="metrics">
         <div class="metric-card">
@@ -352,271 +68,20 @@
         </div>
       </div>
 
-      <div class="target-label" style="font-size: 0.7rem;">Régularité de chaque frappe</div>
+      <div class="target-label bars-label">Régularité de chaque frappe</div>
       <div class="bars-container" id="barsContainer"></div>
 
-      <!-- Bouton de correction audio -->
-      <button class="btn-listen" id="listenBtn" onclick="toggleCorrectionMetronome()">
+      <button class="btn-listen" id="listenBtn">
         🔊 Écouter le vrai tempo (<span id="listenBpmLabel">--</span> BPM)
       </button>
 
-      <!-- Boutons fin de session -->
       <div class="action-buttons">
-        <button class="btn-secondary" onclick="resetRound(false)">Rejouer celui-ci</button>
-        <button class="btn-primary" onclick="resetRound(true)">Session suivante (Nouveau BPM) ➔</button>
+        <button class="btn-secondary" id="replayBtn">Rejouer celui-ci</button>
+        <button class="btn-primary" id="nextRoundBtn">Session suivante (Nouveau BPM) ➔</button>
       </div>
     </div>
   </div>
 
-  <script>
-    const TOTAL_TAPS = 12;
-    let targetBPM = 100;
-    let timestamps = [];
-    let isFinished = false;
-    let audioCtx = null;
-    let metronomeInterval = null;
-
-    const tapBtn = document.getElementById('tapBtn');
-    const targetBox = document.getElementById('targetBox');
-    const targetDisplay = document.getElementById('targetDisplay');
-    const progressFill = document.getElementById('progressFill');
-    const statusText = document.getElementById('statusText');
-    const resultsBox = document.getElementById('resultsBox');
-    const listenBtn = document.getElementById('listenBtn');
-
-    function getRandomBPM() {
-      return Math.floor(Math.random() * (155 - 60 + 1)) + 60;
-    }
-
-    function ensureAudioCtx() {
-      if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
-    }
-
-    // Son de frappe utilisateur
-    function playClick(isReference = false) {
-      ensureAudioCtx();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-
-      if (isReference) {
-        // Son clair et sec pour le métronome de correction
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.035);
-      } else {
-        // Son de tap utilisateur
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.04);
-      }
-
-      gain.gain.setValueAtTime(0.28, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.045);
-
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.05);
-    }
-
-    // Métronome de correction après la session
-    function toggleCorrectionMetronome() {
-      if (metronomeInterval) {
-        stopCorrectionMetronome();
-      } else {
-        startCorrectionMetronome();
-      }
-    }
-
-    function startCorrectionMetronome() {
-      stopCorrectionMetronome();
-      const intervalMs = 60000 / targetBPM;
-
-      listenBtn.classList.add('playing');
-      listenBtn.innerHTML = `⏹ Arrêter l'écoute (${targetBPM} BPM)`;
-
-      const tick = () => {
-        playClick(true);
-        targetBox.classList.add('pulse');
-        setTimeout(() => targetBox.classList.remove('pulse'), 100);
-      };
-
-      tick(); // Premier battement immédiat
-      metronomeInterval = setInterval(tick, intervalMs);
-    }
-
-    function stopCorrectionMetronome() {
-      if (metronomeInterval) {
-        clearInterval(metronomeInterval);
-        metronomeInterval = null;
-      }
-      targetBox.classList.remove('pulse');
-      listenBtn.classList.remove('playing');
-      listenBtn.innerHTML = `🔊 Écouter le vrai tempo (<span id="listenBpmLabel">${targetBPM}</span> BPM)`;
-    }
-
-    function registerTap() {
-      if (isFinished) return;
-
-      playClick(false);
-      const now = performance.now();
-
-      // Remise à zéro si pause > 3 secondes
-      if (timestamps.length > 0 && now - timestamps[timestamps.length - 1] > 3000) {
-        timestamps = [];
-      }
-
-      timestamps.push(now);
-      const count = timestamps.length;
-
-      const pct = Math.min((count / TOTAL_TAPS) * 100, 100);
-      progressFill.style.width = pct + '%';
-
-      if (count < TOTAL_TAPS) {
-        statusText.textContent = `Continuez régulièrement... (${count} / ${TOTAL_TAPS})`;
-      } else {
-        finishRound();
-      }
-    }
-
-    function finishRound() {
-      isFinished = true;
-      tapBtn.disabled = true;
-      statusText.textContent = `Terminé ! Écoutez le vrai tempo ou passez au suivant.`;
-
-      const intervals = [];
-      for (let i = 1; i < timestamps.length; i++) {
-        intervals.push(timestamps[i] - timestamps[i - 1]);
-      }
-
-      const targetInterval = 60000 / targetBPM;
-      const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-      const actualBPM = 60000 / avgInterval;
-
-      // 1. Justesse par rapport au BPM cible
-      const bpmErrorRatio = Math.abs(actualBPM - targetBPM) / targetBPM;
-      const targetAccuracy = Math.max(0, (1 - bpmErrorRatio) * 100);
-
-      // 2. Constance
-      const variance = intervals.reduce((sum, val) => sum + Math.pow(val - avgInterval, 2), 0) / intervals.length;
-      const stdDev = Math.sqrt(variance);
-      const jitterRatio = stdDev / avgInterval;
-      const consistency = Math.max(0, (1 - jitterRatio * 1.5) * 100);
-
-      const globalScore = (targetAccuracy * 0.6 + consistency * 0.4);
-
-      displayResults(actualBPM, globalScore, consistency, intervals, targetInterval);
-    }
-
-    function displayResults(actualBPM, globalScore, consistency, intervals, targetInterval) {
-      resultsBox.style.display = 'block';
-      stopCorrectionMetronome();
-
-      const scoreEl = document.getElementById('accuracyScore');
-      const verdictEl = document.getElementById('verdictText');
-      scoreEl.textContent = globalScore.toFixed(1) + '%';
-
-      if (globalScore >= 96) {
-        scoreEl.style.color = 'var(--success)';
-        verdictEl.textContent = '🎯 Métronome humain ! Précision chirurgicale.';
-      } else if (globalScore >= 90) {
-        scoreEl.style.color = 'var(--accent)';
-        verdictEl.textContent = '🔥 Très solide ! Excellent sens du rythme.';
-      } else if (globalScore >= 80) {
-        scoreEl.style.color = 'var(--warning)';
-        verdictEl.textContent = '👍 Pas mal, mais le tempo dérive un peu.';
-      } else {
-        scoreEl.style.color = 'var(--danger)';
-        verdictEl.textContent = '😅 À côté du tempo ! Écoute la correction ci-dessous.';
-      }
-
-      document.getElementById('userBpmVal').textContent = actualBPM.toFixed(1);
-      const diff = actualBPM - targetBPM;
-      const diffEl = document.getElementById('diffBpmVal');
-      diffEl.textContent = (diff >= 0 ? '+' : '') + diff.toFixed(1);
-      diffEl.style.color = Math.abs(diff) <= 2 ? 'var(--success)' : 'var(--warning)';
-
-      document.getElementById('consistencyVal').textContent = consistency.toFixed(0) + '%';
-
-      // Graphique
-      const barsContainer = document.getElementById('barsContainer');
-      barsContainer.innerHTML = '';
-
-      intervals.forEach((iv, idx) => {
-        const bar = document.createElement('div');
-        bar.className = 'bar';
-        const errorPct = Math.abs(iv - targetInterval) / targetInterval;
-        const heightPct = Math.max(15, Math.min(100, (1 - errorPct * 2) * 100));
-        bar.style.height = heightPct + '%';
-
-        if (errorPct < 0.04) bar.style.background = 'var(--success)';
-        else if (errorPct < 0.1) bar.style.background = 'var(--accent)';
-        else bar.style.background = 'var(--danger)';
-
-        const tapBpm = (60000 / iv).toFixed(0);
-        bar.title = `Frappe ${idx + 1}→${idx + 2} : ${tapBpm} BPM`;
-        barsContainer.appendChild(bar);
-      });
-    }
-
-    function resetRound(changeBpm = true) {
-      stopCorrectionMetronome();
-      timestamps = [];
-      isFinished = false;
-      tapBtn.disabled = false;
-      progressFill.style.width = '0%';
-      resultsBox.style.display = 'none';
-      statusText.textContent = `Prêt : tapez pour démarrer (0 / ${TOTAL_TAPS})`;
-
-      if (changeBpm) {
-        let nextBpm = getRandomBPM();
-        while (nextBpm === targetBPM) {
-          nextBpm = getRandomBPM();
-        }
-        targetBPM = nextBpm;
-        targetDisplay.textContent = targetBPM;
-      }
-    }
-
-    function setCustomBPM() {
-      const val = parseInt(document.getElementById('customBpmInput').value, 10);
-      if (val >= 40 && val <= 240) {
-        targetBPM = val;
-        targetDisplay.textContent = targetBPM;
-        resetRound(false);
-      }
-    }
-
-    // Souris / Tactile
-    tapBtn.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      registerTap();
-    });
-
-    // Clavier (Barre d'espace)
-    window.addEventListener('keydown', (e) => {
-      if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') {
-        e.preventDefault();
-        if (!e.repeat && !isFinished) {
-          tapBtn.classList.add('active');
-          registerTap();
-        }
-      }
-    });
-
-    window.addEventListener('keyup', (e) => {
-      if (e.code === 'Space') {
-        tapBtn.classList.remove('active');
-      }
-    });
-
-    // Initialisation avec un BPM aléatoire dès l'ouverture
-    resetRound(true);
-  </script>
+  <script src="app.js"></script>
 </body>
 </html>
